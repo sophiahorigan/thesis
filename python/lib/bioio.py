@@ -1,0 +1,277 @@
+# -*- coding: utf-8 -*-
+"""
+@author: thatbudakguy
+"""
+
+"""
+ READ
+"""
+
+# takes CSV files and returns list of rows and filenames
+def readCSV(input_files):
+    import csv
+    import sys
+    input_data = {}
+    for file in input_files:
+        if '/' in file:
+            sys.exit("Input files must be in same directory as script.")
+        if file[-4:] != '.csv':
+            sys.exit("Input files must be in .csv format.")
+        with open(file, 'rU') as f:
+            reader = csv.reader(f, delimiter=',')
+            file_data = [r for r in reader]
+        input_data[file[:-4]] = file_data
+    return input_data
+
+# takes TXT files and returns list of lines and filenames, strips '>'
+def readTXT(input_files):
+    import sys
+    input_data = {}
+    for file in input_files:
+        if '/' in file:
+            sys.exit("Input files must be in same directory as script.")
+        if file[-4:] != '.txt':
+            sys.exit("Input files must be in .txt format.")
+        with open(file, 'r') as f:
+            file_data = f.read().splitlines()
+            file_data = trimGreaterThans(file_data)
+        input_data[file[:-4]] = file_data
+    return input_data
+
+# takes FASTA files and returns list of lines and filenames, strips '>'
+def readFASTA(input_files):
+    import sys
+    input_data = {}
+    for file in input_files:
+        if '/' in file:
+            sys.exit("Input files must be in same directory as script.")
+        if file[-6:] != '.fasta':
+            sys.exit("Input files must be in .fasta format.")
+        with open(file, 'r') as f:
+            file_data = f.read().splitlines()
+            file_data = trimGreaterThans(file_data)
+        input_data[file[:-6]] = file_data
+    return input_data
+
+# takes FASTA files and returns dict matching seq/seqid, strips '>'
+def readFASTAdict(input_files):
+    import sys
+    input_data = {}
+    input_dict = {}
+    for file in input_files:
+        if '/' in file:
+            sys.exit("Input files must be in same directory as script.")
+        if file[-6:] != '.fasta':
+            sys.exit("Input files must be in .fasta format.")
+        with open(file, 'r') as f:
+            file_data = f.read().splitlines()
+            file_data = trimGreaterThans(file_data)
+        for i in range(0, len(file_data), 2):
+            input_dict[file_data[i]] = file_data[i+1]
+        input_data[file[:-6]] = input_dict
+    return input_data
+
+"""
+ MANIPULATE
+"""
+
+# takes list of rows and returns dictionary with list of sequence ids and list of sequences
+def splitCSV(input_data):
+    output_seq_ids = []
+    output_seqs = []
+    for data in input_data:
+        output_seq_ids.append(data[0])
+        output_seqs.append(data[1])
+    return {'output_seq_ids':output_seq_ids,'output_seqs':output_seqs}
+
+# takes list of lines and returns dictionary with list of sequence ids and list of sequences
+def splitFASTA(input_data):
+    output_seq_ids = []
+    output_seqs = []
+    for i in range(0, len(input_data), 2):
+        output_seq_ids.append(input_data[i])
+    for i in range(1, len(input_data), 2):
+        output_seqs.append(input_data[i])
+    return {'output_seq_ids':output_seq_ids,'output_seqs':output_seqs}
+
+# takes list of sequence ids and list of sequences, returns dict matching the two together
+def matchFASTA(seq_ids,seqs):
+    output = {}
+    for i in range(len(seq_ids)):
+        output[seq_ids[i]] = seqs[i]
+    return output
+
+# takes list of sequence ids and list of sequences, returns list interspersing the two
+def knitFASTA(seq_ids,seqs):
+    output = []
+    for i in range(len(seq_ids)):
+        output.append(seq_ids[i])
+        output.append(seqs[i])
+    return output
+
+# takes list of lines and makes sure all sequence ids are on a new line, using remaining '>'
+def splitLinearSeqids(rows):
+    output_data = []
+    for row in rows:
+        row = row + ">"
+        string = ""
+        for c in row:
+            if c == ">":
+                output_data.append(string)
+                string = ""
+            else:
+                string = string + c
+    return output_data
+
+# takes list of lines and appends venom code based on filename
+def addVenomCodes(rows,code):
+    import sys
+    output_data = []
+    for row in rows:
+        output_data.append(row + "_" + code)
+    return output_data
+
+# takes list of lines and trims 3-letter venom code
+def trimVenomCodes(input_data):
+    output_data = []
+    for data in input_data:
+        if data[-4] == "_":
+            output_data.append(data[:-4])
+        else:
+            output_data.append(data)
+    return output_data
+
+# adds a > character to the beginning of every line if one is not present
+def addGreaterThans(rows):
+    output_data = []
+    for row in rows:
+        if row[0] != ">":
+            output_data.append(">" + row)
+        else:
+            output_data.append(row)
+    return output_data
+
+# adds a > character to the beginning of every dict key if one is not present
+def addGreaterThansDict(input_dict):
+    output_dict = {}
+    for key, value in input_dict.iteritems():
+        if key[0] != ">":
+            output_dict[">" + key] = value
+    return output_dict
+
+# trims a > character at the beginning of every line if one is present
+def trimGreaterThans(rows):
+    output_data = []
+    for row in rows:
+        if row[0] == ">":
+            output_data.append(row[1:])
+        else:
+            output_data.append(row)
+    return output_data
+
+# replaces s??? codes with sample info codes
+def replaceSCodes(rows):
+    scodes = {
+    's001':'Dry_VG_s001',
+    's002':'Laz1_VG_s002',
+    's003':'LAz2_VG_s003',
+    's004':'LAz3_VG_s004',
+    's005':'Sic1_VG_s005',
+    's006':'Sic2_VG_s006',
+    's007':'Sic3_VG_s007',
+    's008':'PerM1_VG_s008',
+    's009':'PerM2_VG_s009',
+    's010':'PerM3_VG_s010',
+    's011':'PerM1_WB_s011',
+    's012':'PerH_VG_s012',
+    's013':'Phol_VG_s013',
+    's014':'Plec_VG_s014',
+    's015':'Lrec_VG_s015',
+    's016':'Arch_VG_s016',
+    's017':'Arch_WB_s017',
+    's018':'Scy_VG_s018',
+    's019':'Lrf_VG_s019',
+    's020':'Lsp_VG_s020',
+    's021':'PerM2_WB_s021',
+    's022':'PerM3_WB_s022'
+    }
+    output_data = []
+    switch = 0
+    for row in rows:
+        for key, value in scodes.iteritems():
+            switch = 0
+            if key in row:
+                output_data.append(row.replace(key,value))
+                switch = 1
+                break
+        if switch == 0:
+            output_data.append(row)
+    return output_data
+
+def breakClusters(input_data):
+    output_data = []
+    for data in input_data:
+        string = "\n"
+        split = data[1].split(',')
+        if not data[0][11:] in split:
+            string += data[0][11:] + "\n"
+        for s in split:
+            output_data.append(data[0] + ":" + string)
+    return output_data
+
+
+def trimPepSeqIds(seq_ids):
+    output_data = []
+    for seq_id in seq_ids:
+        output_data.append(seq_id.split(':')[0])
+    return output_data
+
+"""
+WRITE
+"""
+# writes one separate output file for every venom tag supplied
+def splitOnIDPrefix(input_data, prefix):
+    output_data = []
+    for i in range(0, len(input_data), 2):
+        if(input_data[i][:len(prefix)] == prefix):
+            output_data.append(input_data[i])
+            output_data.append(input_data[i+1])
+    splitData = splitFASTA(output_data)
+    output_seq_ids = splitData['output_seq_ids']
+    output_seqs = splitData['output_seqs']
+    output_fasta_name = prefix+".fasta"
+    writeFASTA(output_fasta_name,output_seq_ids,output_seqs)
+
+# takes a list of rows output_csv and writes a CSV file with name output_csv_name
+def writeCSV(output_csv_name,output_csv):
+    import csv
+    with open(output_csv_name, "w") as file:
+        writer = csv.writer(file, lineterminator='\n')
+        writer.writerows(output_csv)
+    print "\nWrote " + output_csv_name + "\n"
+
+# takes a list of lines output_txt (adds '>') and writes a TXT file with name output_txt_name
+def writeTXT(output_txt_name,output_txt):
+    output_txt = addGreaterThans(output_txt)
+    with open(output_txt_name, "w") as file:
+        for line in output_txt:
+            file.write(line+"\n")
+    print "\nWrote " + output_txt_name + "\n"
+
+# takes a list of sequence ids output_seq_ids (adds '>') and a list of sequences output_seqs and writes a FASTA file with name output_fasta_name
+def writeFASTA(output_fasta_name,output_seq_ids,output_seqs):
+    output_seq_ids = addGreaterThans(output_seq_ids)
+    with open(output_fasta_name, "w") as file:
+        for i in range(len(output_seqs)):
+            file.write(output_seq_ids[i]+"\n")
+            file.write(output_seqs[i]+"\n")
+    print "\nWrote " + output_fasta_name + "\n"
+
+# takes a list of sequence ids output_seq_ids (adds '>') and a list of sequences output_seqs and writes a FASTA file with name output_fasta_name
+def writeFASTAdict(output_fasta_name,output_fasta_dict):
+    output_fasta_dict = addGreaterThansDict(output_fasta_dict)
+    with open(output_fasta_name, "w") as file:
+        for key, value in output_fasta_dict.iteritems():
+            file.write(key+"\n")
+            file.write(value+"\n")
+    print "\nWrote " + output_fasta_name + "\n"

@@ -1,0 +1,40 @@
+#ssh into AWS
+#the public DNS will change with each instance
+
+#AMI Biobase2.62
+
+ssh -i ~/BLAST-Key.pem ubuntu@35.162.94.184
+
+#upload seeds and db from S3 to instance
+#navigate folder hierarchy to where you have placed SEEDS.fasta/DATABASE.fasta within lclark-bio-data
+
+aws s3 cp s3://lclark-bio-data/thesis/BLAST102916/0316_ProteomeDb.fasta ~/
+aws s3 cp s3://lclark-bio-data/thesis/BLAST102916/concatenated_translated_new_db.fasta ~/
+
+#BLAST wasn’t installed
+sudo apt-get install ncbi-blast+
+
+#make BLAST database
+makeblastdb -in concatenated_translated_new_db.fasta -dbtype prot -out concat_trans_trans -title concat_trans_trans
+
+#perform the BLAST
+#outfmt 10 gives a csv, there are other options as well
+#max_target_sequences is how many hit results to keep. Put a big number so data doesn't get cut off.
+
+blastp -db concat_trans_trans -query 0316_ProteomeDb.fasta -evalue 10e-5 -out BLAST_venom_102916.csv -outfmt 10 -max_target_seqs 100000
+
+#move the files to the scripts folder
+
+mv BLAST_venom_102916.csv scripts/python
+mv concatenated_translated_new_db.fasta scripts/python
+
+#run the cleaning scripts
+#inputs are database and csv BLAST output
+#output is a BLAST_genefamily_date_homologs.fasta file
+
+python fullPipeline.py concatenated_translated_new_db.fasta BLAST_venom_102916.csv
+
+#download csv and .fasta back to S3
+
+aws s3 cp BLAST_venom_102916.csv s3://lclark-bio-data/thesis/BLAST102916/
+aws s3 cp BLAST_venom_102916_homologs.fasta s3://lclark-bio-data/thesis/BLAST102916/
